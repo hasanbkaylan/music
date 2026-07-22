@@ -111,7 +111,7 @@
         </div>
       </div>
 
-      <!-- Önizleme Butonu Yuvası (Dinamik) -->
+      <!-- Önizleme Butonu Yuvası -->
       <div id="main-preview-container" class="mt-4 border-t border-white/10 pt-3 flex justify-end hidden">
         <button id="main-preview-btn" class="flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95">
           <span class="material-symbols-outlined text-sm">play_arrow</span>
@@ -273,14 +273,14 @@
         album.className = "text-xs text-m3OnSurfaceVariant truncate mt-0.5";
       }
 
-      // Sayfa yenilendiğinde aktif çalma durumu UI güncellemesi
+      // Sayfa yenilendiğinde aktif çalma durumu UI güncellemesi (Her zaman isMainCard = true olarak atanır) [1]
       const trackKey = `${tName}-${aName}`;
       if (activeTrackKey === trackKey && activeAudio && !activeAudio.paused) {
         activeAudio.dataset.elementId = 'main-preview-btn';
         activeAudio.dataset.isMainCard = "true";
         updatePlayButtonUI('main-preview-btn', true, true);
       } else {
-        updatePlayButtonUI('main-preview-btn', false, isLive);
+        updatePlayButtonUI('main-preview-btn', false, true); // Düzeltildi: isLive yerine her zaman true gönderilerek buton şeklinin bozulması önlendi [1]
       }
     }
 
