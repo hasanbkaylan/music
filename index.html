@@ -94,21 +94,28 @@
       </div>
 
       <!-- Şarkı Bilgileri -->
-      <div class="flex gap-4 items-center">
-        <!-- Albüm Kapağı -->
-        <div class="relative flex-shrink-0 w-20 h-20 bg-zinc-800 rounded-2xl overflow-hidden shadow-inner">
-          <img id="now-playing-img" class="w-full h-full object-cover opacity-0 transition-opacity duration-300" src="" alt="Album Art">
-          <!-- Fallback müzik ikonu -->
-          <div id="now-playing-fallback" class="absolute inset-0 flex items-center justify-center bg-zinc-800 text-m3Primary">
-            <span class="material-symbols-outlined text-4xl">album</span>
+      <div class="flex gap-4 items-center justify-between">
+        <div class="flex gap-4 items-center min-w-0 flex-1">
+          <!-- Albüm Kapağı -->
+          <div class="relative flex-shrink-0 w-20 h-20 bg-zinc-800 rounded-2xl overflow-hidden shadow-inner">
+            <img id="now-playing-img" class="w-full h-full object-cover opacity-0 transition-opacity duration-300" src="" alt="Album Art">
+            <!-- Fallback müzik ikonu -->
+            <div id="now-playing-fallback" class="absolute inset-0 flex items-center justify-center bg-zinc-800 text-m3Primary">
+              <span class="material-symbols-outlined text-4xl">album</span>
+            </div>
+          </div>
+          
+          <div class="min-w-0 flex-1">
+            <h2 id="now-playing-title" class="font-bold text-lg text-m3OnSurface truncate">...</h2>
+            <p id="now-playing-artist" class="text-sm font-medium truncate mt-0.5">...</p>
+            <p id="now-playing-album" class="text-xs truncate mt-0.5">...</p>
           </div>
         </div>
-        
-        <div class="min-w-0 flex-1">
-          <h2 id="now-playing-title" class="font-bold text-lg text-m3OnSurface truncate">...</h2>
-          <p id="now-playing-artist" class="text-sm font-medium truncate mt-0.5">...</p>
-          <p id="now-playing-album" class="text-xs truncate mt-0.5">...</p>
-        </div>
+
+        <!-- iTunes Önizleme Oynatıcı Buton (Yalnızca canlı ve önizleme varsa görünür) -->
+        <button id="preview-btn" class="hidden flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white m3-transition shadow-sm ml-2">
+          <span id="preview-btn-icon" class="material-symbols-outlined text-2xl font-bold">play_arrow</span>
+        </button>
       </div>
     </section>
 
@@ -159,6 +166,11 @@
     const LASTFM_API_KEY = "42256b45c944fd85183c852cf6a1bed9";
     const LASTFM_USERNAME = "hasanbkaylan";
     // --------------------
+
+    // Ses oynatıcı global değişkenleri
+    let audioPlayer = new Audio();
+    let currentPreviewUrl = null;
+    let lastTrackKey = "";
 
     // Albüm kapağı yüklenemezse kullanılacak şık, yerel SVG plak şablonu (Dış bağlantı istemez)
     const FALLBACK_ART = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='4' fill='%231c1b1f'/><circle cx='12' cy='12' r='8' fill='%232d2b30'/><circle cx='12' cy='12' r='3' fill='%23d0bcff'/></svg>";
@@ -218,6 +230,27 @@
       }
     }
 
+    // iTunes API üzerinden 30s önizleme arayan fonksiyon
+    async function fetchiTunesPreview(trackName, artistName) {
+      const query = `${trackName} ${artistName}`;
+      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`;
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        const previewBtn = document.getElementById('preview-btn');
+        
+        if (data.results && data.results.length > 0 && data.results[0].previewUrl) {
+          currentPreviewUrl = data.results[0].previewUrl;
+          previewBtn.classList.remove('hidden');
+        } else {
+          currentPreviewUrl = null;
+          previewBtn.classList.add('hidden');
+        }
+      } catch (e) {
+        console.error("iTunes önizleme arama hatası:", e);
+      }
+    }
+
     function updateNowPlayingCard(track, isLive) {
       const card = document.getElementById('now-playing-card');
       const badge = document.getElementById('status-badge');
@@ -227,12 +260,13 @@
       const album = document.getElementById('now-playing-album');
       const img = document.getElementById('now-playing-img');
       const fallback = document.getElementById('now-playing-fallback');
+      const previewBtn = document.getElementById('preview-btn');
 
       title.innerText = track.name || "Bilinmeyen Şarkı";
       artist.innerText = track.artist?.['#text'] || "Bilinmeyen Sanatçı";
       album.innerText = track.album?.['#text'] || "";
 
-      // Güvenli görsel çekme (Canlı kartı için geniş/büyük boy: index 2)
+      // Güvenli görsel çekme
       const coverUrl = getTrackImage(track, 2);
       
       img.src = coverUrl;
@@ -252,6 +286,17 @@
         title.className = "font-bold text-lg text-white truncate";
         artist.className = "text-sm text-[#d0bcff] font-medium truncate mt-0.5";
         album.className = "text-xs text-[#eaddff]/70 truncate mt-0.5";
+
+        // Şarkı değiştiyse iTunes API'den yeni önizlemeyi sorgula
+        const trackKey = `${track.name} - ${track.artist?.['#text']}`;
+        if (trackKey !== lastTrackKey) {
+          lastTrackKey = trackKey;
+          audioPlayer.pause();
+          audioPlayer.src = "";
+          document.getElementById('preview-btn-icon').innerText = 'play_arrow';
+          previewBtn.classList.add('hidden');
+          fetchiTunesPreview(track.name, track.artist?.['#text']);
+        }
       } else {
         // Çevrimdışı / Son Dinlenen Modu
         card.className = "bg-m3SurfaceVariant rounded-[28px] p-6 shadow-lg border border-white/5 m3-transition";
@@ -263,6 +308,14 @@
         title.className = "font-bold text-lg text-m3OnSurface truncate";
         artist.className = "text-sm text-m3Primary font-medium truncate mt-0.5";
         album.className = "text-xs text-m3OnSurfaceVariant truncate mt-0.5";
+
+        // Canlı modda değilse önizlemeyi kapat ve gizle
+        lastTrackKey = "";
+        currentPreviewUrl = null;
+        audioPlayer.pause();
+        audioPlayer.src = "";
+        document.getElementById('preview-btn-icon').innerText = 'play_arrow';
+        previewBtn.classList.add('hidden');
       }
     }
 
@@ -305,6 +358,31 @@
       const days = Math.floor(hours / 24);
       return `${days} gün`;
     }
+
+    // Önizleme Butonu Oynatma/Durdurma Tetikleyicisi
+    document.getElementById('preview-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const icon = document.getElementById('preview-btn-icon');
+      
+      if (!currentPreviewUrl) return;
+
+      if (audioPlayer.src !== currentPreviewUrl) {
+        audioPlayer.src = currentPreviewUrl;
+      }
+      
+      if (audioPlayer.paused) {
+        audioPlayer.play().catch(err => console.log("Oynatma engellendi, etkileşim gerekiyor:", err));
+        icon.innerText = 'pause';
+      } else {
+        audioPlayer.pause();
+        icon.innerText = 'play_arrow';
+      }
+    });
+
+    // Önizleme bittiğinde ikon durumunu sıfırla
+    audioPlayer.addEventListener('ended', () => {
+      document.getElementById('preview-btn-icon').innerText = 'play_arrow';
+    });
 
     // İlk yükleme ve periyodik sorgulama (20 saniyede bir)
     fetchMusic();
