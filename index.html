@@ -64,8 +64,10 @@
   <!-- Profil Başlığı -->
   <header class="flex flex-col items-center text-center mb-8 max-w-md w-full">
     <!-- Profil Avatar (M3 Squircle tarzı yuvarlatılmış kare) -->
-    <div class="w-24 h-24 bg-m3PrimaryContainer rounded-[28px] flex items-center justify-center text-m3OnPrimaryContainer text-4xl font-bold shadow-md mb-4 select-none">
-      H
+    <div class="w-24 h-24 bg-m3PrimaryContainer rounded-[28px] flex items-center justify-center shadow-md mb-4 overflow-hidden select-none">
+      <img src="DSC_0781~2.JPG" alt="Hasan" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+      <!-- Fotoğraf bulunamazsa yedek olarak görünecek harf -->
+      <span class="hidden text-m3OnPrimaryContainer text-4xl font-bold">H</span>
     </div>
     <h1 class="text-3xl font-bold tracking-tight text-m3OnSurface">Hasan</h1>
   </header>
