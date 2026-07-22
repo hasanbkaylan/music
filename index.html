@@ -94,27 +94,28 @@
       </div>
 
       <!-- Şarkı Bilgileri -->
-      <div class="flex gap-4 items-center justify-between">
-        <div class="flex gap-4 items-center min-w-0 flex-1">
-          <!-- Albüm Kapağı -->
-          <div class="relative flex-shrink-0 w-20 h-20 bg-zinc-800 rounded-2xl overflow-hidden shadow-inner">
-            <img id="now-playing-img" class="w-full h-full object-cover opacity-0 transition-opacity duration-300" src="" alt="Album Art">
-            <!-- Fallback müzik ikonu -->
-            <div id="now-playing-fallback" class="absolute inset-0 flex items-center justify-center bg-zinc-800 text-m3Primary">
-              <span class="material-symbols-outlined text-4xl">album</span>
-            </div>
-          </div>
-          
-          <div class="min-w-0 flex-1">
-            <h2 id="now-playing-title" class="font-bold text-lg text-m3OnSurface truncate">...</h2>
-            <p id="now-playing-artist" class="text-sm font-medium truncate mt-0.5">...</p>
-            <p id="now-playing-album" class="text-xs truncate mt-0.5">...</p>
+      <div class="flex gap-4 items-center">
+        <!-- Albüm Kapağı -->
+        <div class="relative flex-shrink-0 w-20 h-20 bg-zinc-800 rounded-2xl overflow-hidden shadow-inner">
+          <img id="now-playing-img" class="w-full h-full object-cover opacity-0 transition-opacity duration-300" src="" alt="Album Art">
+          <!-- Fallback müzik ikonu -->
+          <div id="now-playing-fallback" class="absolute inset-0 flex items-center justify-center bg-zinc-800 text-m3Primary">
+            <span class="material-symbols-outlined text-4xl">album</span>
           </div>
         </div>
+        
+        <div class="min-w-0 flex-1">
+          <h2 id="now-playing-title" class="font-bold text-lg text-m3OnSurface truncate">...</h2>
+          <p id="now-playing-artist" class="text-sm font-medium truncate mt-0.5">...</p>
+          <p id="now-playing-album" class="text-xs truncate mt-0.5">...</p>
+        </div>
+      </div>
 
-        <!-- iTunes Önizleme Oynatıcı Buton (Yalnızca canlı ve önizleme varsa görünür) -->
-        <button id="preview-btn" class="hidden flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white m3-transition shadow-sm ml-2">
-          <span id="preview-btn-icon" class="material-symbols-outlined text-2xl font-bold">play_arrow</span>
+      <!-- Önizleme Butonu Yuvası (Dinamik) -->
+      <div id="main-preview-container" class="mt-4 border-t border-white/10 pt-3 flex justify-end hidden">
+        <button id="main-preview-btn" class="flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95">
+          <span class="material-symbols-outlined text-sm">play_arrow</span>
+          <span>Önizlemeyi Çal</span>
         </button>
       </div>
     </section>
@@ -134,7 +135,7 @@
       <a href="https://open.spotify.com/user/31g4uay55kjgceolr3cps3ty4n4u?si=sCQp-tIZShu5ezTRd3WS5w&utm_source=copy-link" 
          target="_blank" 
          rel="noopener noreferrer" 
-         class="w-12 h-12 flex items-center justify-center rounded-full bg-m3Surface hover:bg-m3SurfaceVariant border border-white/5 m3-transition shadow-sm">
+         class="w-12 h-12 flex items-center justify-center rounded-full bg-m3Surface hover:bg-m3SurfaceVariant border border-white/5 m3-transition shadow-sm hover:scale-105">
         <img src="spotify-white-icon.svg" alt="Spotify" class="w-5 h-5 opacity-90">
       </a>
       
@@ -142,7 +143,7 @@
       <a href="https://music.youtube.com/@hasanberatkaylan" 
          target="_blank" 
          rel="noopener noreferrer" 
-         class="w-12 h-12 flex items-center justify-center rounded-full bg-m3Surface hover:bg-m3SurfaceVariant border border-white/5 m3-transition shadow-sm">
+         class="w-12 h-12 flex items-center justify-center rounded-full bg-m3Surface hover:bg-m3SurfaceVariant border border-white/5 m3-transition shadow-sm hover:scale-105">
         <img src="icons8-youtube-music.svg" alt="YouTube Music" class="w-5 h-5 opacity-90">
       </a>
 
@@ -150,7 +151,7 @@
       <a href="https://www.last.fm/tr/user/hasanbkaylan" 
          target="_blank" 
          rel="noopener noreferrer" 
-         class="w-12 h-12 flex items-center justify-center rounded-full bg-m3Surface hover:bg-m3SurfaceVariant border border-white/5 m3-transition shadow-sm">
+         class="w-12 h-12 flex items-center justify-center rounded-full bg-m3Surface hover:bg-m3SurfaceVariant border border-white/5 m3-transition shadow-sm hover:scale-105">
         <img src="last-fm-white-icon.svg" alt="Last.fm" class="w-5 h-5 opacity-90">
       </a>
     </section>
@@ -167,26 +168,20 @@
     const LASTFM_USERNAME = "hasanbkaylan";
     // --------------------
 
-    // Ses oynatıcı global değişkenleri
-    let audioPlayer = new Audio();
-    let currentPreviewUrl = null;
-    let lastTrackKey = "";
-
-    // Albüm kapağı yüklenemezse kullanılacak şık, yerel SVG plak şablonu (Dış bağlantı istemez)
     const FALLBACK_ART = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='4' fill='%231c1b1f'/><circle cx='12' cy='12' r='8' fill='%232d2b30'/><circle cx='12' cy='12' r='3' fill='%23d0bcff'/></svg>";
 
-    // Albüm kapağını her durumda güvenle çeken fonksiyon
+    // Global Müzik Çalar Değişkenleri
+    let activeAudio = null;
+    let activeTrackKey = null; // ŞarkıAdı-Sanatçı eşleşmesi
+    const previewUrlCache = {}; // Çekilen url'leri önbellekte tutar
+
+    // Güvenli görsel çekme fonksiyonu
     function getTrackImage(track, preferredSizeIndex) {
       if (!track || !track.image) return FALLBACK_ART;
-      
       let imageUrl = "";
-      
-      // Tercih edilen boyuttaki resmi almayı dene
       if (track.image[preferredSizeIndex] && track.image[preferredSizeIndex]['#text']) {
         imageUrl = track.image[preferredSizeIndex]['#text'];
       }
-      
-      // Eğer o boyutta resim yoksa mevcut herhangi bir boyutu bulmaya çalış
       if (!imageUrl) {
         for (let i = track.image.length - 1; i >= 0; i--) {
           if (track.image[i] && track.image[i]['#text']) {
@@ -195,12 +190,9 @@
           }
         }
       }
-      
-      // Boş URL veya varsayılan boş Last.fm görseli algılanırsa yerel SVG şablonuna dön
       if (!imageUrl || imageUrl.trim() === "" || imageUrl.includes("2a96cbd87f06")) {
         return FALLBACK_ART;
       }
-      
       return imageUrl;
     }
 
@@ -216,7 +208,6 @@
         if (!trackList || trackList.length === 0) return;
 
         const tracks = Array.isArray(trackList) ? trackList : [trackList];
-
         const firstTrack = tracks[0];
         const isCurrentlyPlaying = firstTrack['@attr']?.nowplaying === "true";
 
@@ -230,27 +221,6 @@
       }
     }
 
-    // iTunes API üzerinden 30s önizleme arayan fonksiyon
-    async function fetchiTunesPreview(trackName, artistName) {
-      const query = `${trackName} ${artistName}`;
-      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`;
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-        const previewBtn = document.getElementById('preview-btn');
-        
-        if (data.results && data.results.length > 0 && data.results[0].previewUrl) {
-          currentPreviewUrl = data.results[0].previewUrl;
-          previewBtn.classList.remove('hidden');
-        } else {
-          currentPreviewUrl = null;
-          previewBtn.classList.add('hidden');
-        }
-      } catch (e) {
-        console.error("iTunes önizleme arama hatası:", e);
-      }
-    }
-
     function updateNowPlayingCard(track, isLive) {
       const card = document.getElementById('now-playing-card');
       const badge = document.getElementById('status-badge');
@@ -260,62 +230,57 @@
       const album = document.getElementById('now-playing-album');
       const img = document.getElementById('now-playing-img');
       const fallback = document.getElementById('now-playing-fallback');
-      const previewBtn = document.getElementById('preview-btn');
 
-      title.innerText = track.name || "Bilinmeyen Şarkı";
-      artist.innerText = track.artist?.['#text'] || "Bilinmeyen Sanatçı";
+      const previewContainer = document.getElementById('main-preview-container');
+      const previewBtn = document.getElementById('main-preview-btn');
+
+      const tName = track.name || "Bilinmeyen Şarkı";
+      const aName = track.artist?.['#text'] || "Bilinmeyen Sanatçı";
+
+      title.innerText = tName;
+      artist.innerText = aName;
       album.innerText = track.album?.['#text'] || "";
 
-      // Güvenli görsel çekme
       const coverUrl = getTrackImage(track, 2);
-      
       img.src = coverUrl;
       img.onload = () => {
         img.classList.remove('opacity-0');
         fallback.classList.add('hidden');
       };
 
+      // Önizleme butonunu etkinleştir ve olayları bağla [1]
+      previewContainer.classList.remove('hidden');
+      const safeTitle = tName.replace(/'/g, "\\'");
+      const safeArtist = aName.replace(/'/g, "\\'");
+      previewBtn.onclick = () => togglePreview(safeTitle, safeArtist, 'main-preview-btn', true);
+
+      // Kart stillerini uygula
       if (isLive) {
-        // Canlı Dinleme Modu
         card.className = "bg-m3PrimaryContainer rounded-[28px] p-6 shadow-lg border border-m3Primary/20 m3-transition";
-        
         badge.className = "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-m3Primary text-m3OnPrimary";
-        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-m3OnPrimary animate-pulse"></span>CANLI DİNLENİYOR`;
+        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-m3OnPrimary animate-pulse"></span>ŞU AN DİNLİYOR`;
         eq.classList.remove('hidden');
-        
         title.className = "font-bold text-lg text-white truncate";
         artist.className = "text-sm text-[#d0bcff] font-medium truncate mt-0.5";
         album.className = "text-xs text-[#eaddff]/70 truncate mt-0.5";
-
-        // Şarkı değiştiyse iTunes API'den yeni önizlemeyi sorgula
-        const trackKey = `${track.name} - ${track.artist?.['#text']}`;
-        if (trackKey !== lastTrackKey) {
-          lastTrackKey = trackKey;
-          audioPlayer.pause();
-          audioPlayer.src = "";
-          document.getElementById('preview-btn-icon').innerText = 'play_arrow';
-          previewBtn.classList.add('hidden');
-          fetchiTunesPreview(track.name, track.artist?.['#text']);
-        }
       } else {
-        // Çevrimdışı / Son Dinlenen Modu
         card.className = "bg-m3SurfaceVariant rounded-[28px] p-6 shadow-lg border border-white/5 m3-transition";
-
         badge.className = "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-zinc-800 text-zinc-400";
         badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>SON DİNLENEN`;
         eq.classList.add('hidden');
-        
         title.className = "font-bold text-lg text-m3OnSurface truncate";
         artist.className = "text-sm text-m3Primary font-medium truncate mt-0.5";
         album.className = "text-xs text-m3OnSurfaceVariant truncate mt-0.5";
+      }
 
-        // Canlı modda değilse önizlemeyi kapat ve gizle
-        lastTrackKey = "";
-        currentPreviewUrl = null;
-        audioPlayer.pause();
-        audioPlayer.src = "";
-        document.getElementById('preview-btn-icon').innerText = 'play_arrow';
-        previewBtn.classList.add('hidden');
+      // Sayfa yenilendiğinde aktif çalma durumu UI güncellemesi
+      const trackKey = `${tName}-${aName}`;
+      if (activeTrackKey === trackKey && activeAudio && !activeAudio.paused) {
+        activeAudio.dataset.elementId = 'main-preview-btn';
+        activeAudio.dataset.isMainCard = "true";
+        updatePlayButtonUI('main-preview-btn', true, true);
+      } else {
+        updatePlayButtonUI('main-preview-btn', false, isLive);
       }
     }
 
@@ -323,15 +288,16 @@
       const container = document.getElementById('recent-list');
       container.innerHTML = ""; 
 
-      tracks.forEach(track => {
+      tracks.forEach((track, index) => {
         const title = track.name;
         const artist = track.artist?.['#text'];
-        
-        // Güvenli görsel çekme (Geçmiş listesi için orta boy: index 1)
         const coverUrl = getTrackImage(track, 1);
-        
         const uts = track.date?.uts;
         const timeStr = uts ? timeAgo(uts) : "Az önce";
+
+        const safeTitle = title.replace(/'/g, "\\'");
+        const safeArtist = artist.replace(/'/g, "\\'");
+        const buttonId = `hist-preview-btn-${index}`;
 
         const item = document.createElement('div');
         item.className = "flex items-center gap-3 p-2 rounded-2xl hover:bg-white/[0.04] m3-transition";
@@ -341,10 +307,147 @@
             <h4 class="font-semibold text-sm text-m3OnSurface truncate">${title}</h4>
             <p class="text-xs text-m3OnSurfaceVariant truncate">${artist}</p>
           </div>
-          <span class="text-[11px] text-m3Outline flex-shrink-0">${timeStr}</span>
+          <div class="flex items-center gap-3 flex-shrink-0">
+            <span class="text-[11px] text-m3Outline">${timeStr}</span>
+            <button id="${buttonId}" onclick="togglePreview('${safeTitle}', '${safeArtist}', '${buttonId}', false)" class="w-8 h-8 rounded-full flex items-center justify-center bg-m3SurfaceVariant hover:bg-white/[0.08] text-m3Primary m3-transition shadow-sm">
+              <span class="material-symbols-outlined text-lg">play_arrow</span>
+            </button>
+          </div>
         `;
         container.appendChild(item);
+
+        // Sayfa her 20s'de bir güncellendiğinde, bu şarkı çalmaya devam ediyorsa butonun pause ikonunu koru [1]
+        const trackKey = `${title}-${artist}`;
+        if (activeTrackKey === trackKey && activeAudio && !activeAudio.paused) {
+          activeAudio.dataset.elementId = buttonId;
+          activeAudio.dataset.isMainCard = "false";
+          updatePlayButtonUI(buttonId, true, false);
+        }
       });
+    }
+
+    // iTunes Dinamik Müzik Önizleme Oynatıcı Motoru [1]
+    async function togglePreview(title, artist, elementId, isMainCard) {
+      const trackKey = `${title}-${artist}`;
+      
+      // 1. Aynı şarkıya tekrar tıklandıysa durum değiştir (Duraklat / Oynat)
+      if (activeTrackKey === trackKey && activeAudio) {
+        if (!activeAudio.paused) {
+          activeAudio.pause();
+          updatePlayButtonUI(elementId, false, isMainCard);
+        } else {
+          activeAudio.play();
+          updatePlayButtonUI(elementId, true, isMainCard);
+        }
+        return;
+      }
+
+      // 2. Başka bir şarkı çalıyorsa onu durdur ve ikonunu sıfırla
+      if (activeAudio) {
+        activeAudio.pause();
+        const prevElementId = activeAudio.dataset.elementId;
+        const prevIsMainCard = activeAudio.dataset.isMainCard === "true";
+        updatePlayButtonUI(prevElementId, false, prevIsMainCard);
+      }
+
+      // 3. iTunes API üzerinden önizleme linkini çek (Varsa cache'den al) [1]
+      let previewUrl = previewUrlCache[trackKey];
+      if (!previewUrl) {
+        setButtonLoading(elementId, true, isMainCard);
+        try {
+          const query = `${title} ${artist}`;
+          const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`);
+          const data = await response.json();
+          if (data.results && data.results.length > 0) {
+            previewUrl = data.results[0].previewUrl;
+            previewUrlCache[trackKey] = previewUrl; // Önbelleğe kaydet [1]
+          }
+        } catch (error) {
+          console.error("iTunes API Hatası:", error);
+        }
+        setButtonLoading(elementId, false, isMainCard);
+      }
+
+      // 4. iTunes üzerinde şarkı bulunamadıysa uyarı ver [1]
+      if (!previewUrl) {
+        alert("Bu parçanın 30 saniyelik önizlemesi iTunes veritabanında bulunamadı.");
+        return;
+      }
+
+      // 5. Şarkıyı oynat [1]
+      activeAudio = new Audio(previewUrl);
+      activeAudio.dataset.elementId = elementId;
+      activeAudio.dataset.isMainCard = isMainCard;
+      activeTrackKey = trackKey;
+
+      activeAudio.play();
+      updatePlayButtonUI(elementId, true, isMainCard);
+
+      // Şarkı bittiğinde buton durumunu sıfırla [1]
+      activeAudio.onended = () => {
+        updatePlayButtonUI(elementId, false, isMainCard);
+        activeAudio = null;
+        activeTrackKey = null;
+      };
+    }
+
+    // Butonların Tasarım/Durum Güncellemeleri (M3 Uyumlu)
+    function updatePlayButtonUI(elementId, isPlaying, isMainCard) {
+      const btn = document.getElementById(elementId);
+      if (!btn) return;
+      
+      const icon = btn.querySelector('.material-symbols-outlined');
+      
+      if (isMainCard) {
+        const text = btn.querySelector('span:not(.material-symbols-outlined)');
+        if (isPlaying) {
+          icon.innerText = "pause";
+          text.innerText = "Önizlemeyi Durdur";
+          btn.className = "flex items-center gap-2 px-4 py-2 bg-m3PrimaryContainer text-m3OnPrimaryContainer rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95";
+        } else {
+          icon.innerText = "play_arrow";
+          text.innerText = "Önizlemeyi Çal";
+          btn.className = "flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95";
+        }
+      } else {
+        if (isPlaying) {
+          icon.innerText = "pause";
+          btn.className = "w-8 h-8 rounded-full flex items-center justify-center bg-m3PrimaryContainer text-m3OnPrimaryContainer m3-transition shadow-sm scale-105";
+        } else {
+          icon.innerText = "play_arrow";
+          btn.className = "w-8 h-8 rounded-full flex items-center justify-center bg-m3SurfaceVariant hover:bg-white/[0.08] text-m3Primary m3-transition shadow-sm";
+        }
+      }
+    }
+
+    // Buton Yükleniyor Animasyonu
+    function setButtonLoading(elementId, isLoading, isMainCard) {
+      const btn = document.getElementById(elementId);
+      if (!btn) return;
+      
+      const icon = btn.querySelector('.material-symbols-outlined');
+      
+      if (isMainCard) {
+        const text = btn.querySelector('span:not(.material-symbols-outlined)');
+        if (isLoading) {
+          btn.disabled = true;
+          icon.innerText = "sync";
+          icon.classList.add("animate-spin");
+          text.innerText = "Yükleniyor...";
+        } else {
+          btn.disabled = false;
+          icon.classList.remove("animate-spin");
+        }
+      } else {
+        if (isLoading) {
+          btn.disabled = true;
+          icon.innerText = "sync";
+          icon.classList.add("animate-spin");
+        } else {
+          btn.disabled = false;
+          icon.classList.remove("animate-spin");
+        }
+      }
     }
 
     function timeAgo(uts) {
@@ -358,31 +461,6 @@
       const days = Math.floor(hours / 24);
       return `${days} gün`;
     }
-
-    // Önizleme Butonu Oynatma/Durdurma Tetikleyicisi
-    document.getElementById('preview-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const icon = document.getElementById('preview-btn-icon');
-      
-      if (!currentPreviewUrl) return;
-
-      if (audioPlayer.src !== currentPreviewUrl) {
-        audioPlayer.src = currentPreviewUrl;
-      }
-      
-      if (audioPlayer.paused) {
-        audioPlayer.play().catch(err => console.log("Oynatma engellendi, etkileşim gerekiyor:", err));
-        icon.innerText = 'pause';
-      } else {
-        audioPlayer.pause();
-        icon.innerText = 'play_arrow';
-      }
-    });
-
-    // Önizleme bittiğinde ikon durumunu sıfırla
-    audioPlayer.addEventListener('ended', () => {
-      document.getElementById('preview-btn-icon').innerText = 'play_arrow';
-    });
 
     // İlk yükleme ve periyodik sorgulama (20 saniyede bir)
     fetchMusic();
