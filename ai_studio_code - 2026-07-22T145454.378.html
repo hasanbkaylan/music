@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hasan // Music</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts & Material Symbols (Material Design 3 için) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+          colors: {
+            // Material Design 3 Dark Theme Renk Paleti
+            m3Bg: '#131316',
+            m3Surface: '#1c1b1f',
+            m3SurfaceVariant: '#2d2b30',
+            m3Primary: '#d0bcff',
+            m3OnPrimary: '#381e72',
+            m3PrimaryContainer: '#4f378b',
+            m3OnPrimaryContainer: '#eaddff',
+            m3SecondaryContainer: '#4a4458',
+            m3Outline: '#938f99',
+            m3OnSurface: '#e6e1e5',
+            m3OnSurfaceVariant: '#cac4d0',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .m3-transition {
+      transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+    }
+    
+    /* Canlı Müzik Ekolayzır Animasyonu */
+    @keyframes eq-scale {
+      0%, 100% { transform: scaleY(0.3); }
+      50% { transform: scaleY(1); }
+    }
+    .eq-bar {
+      transform-origin: bottom;
+      animation: eq-scale 1.2s ease-in-out infinite;
+    }
+    .eq-1 { animation-delay: 0.1s; }
+    .eq-2 { animation-delay: 0.4s; }
+    .eq-3 { animation-delay: 0.2s; }
+    .eq-4 { animation-delay: 0.6s; }
+  </style>
+</head>
+<body class="bg-m3Bg text-m3OnSurface font-sans min-h-screen flex flex-col items-center py-12 px-4">
+
+  <!-- Profil Başlığı -->
+  <header class="flex flex-col items-center text-center mb-8 max-w-md w-full">
+    <!-- Profil Avatar (M3 Squircle tarzı yuvarlatılmış kare) -->
+    <div class="w-24 h-24 bg-m3PrimaryContainer rounded-[28px] flex items-center justify-center text-m3OnPrimaryContainer text-4xl font-bold shadow-md mb-4 select-none">
+      H
+    </div>
+    <h1 class="text-3xl font-bold tracking-tight text-m3OnSurface">Hasan</h1>
+  </header>
+
+  <!-- ANA İÇERİK ALANI -->
+  <main class="max-w-md w-full space-y-6">
+
+    <!-- CANLI / SON ÇALAN KART (M3 Elevated Card) -->
+    <section id="now-playing-card" class="bg-m3SurfaceVariant rounded-[28px] p-6 shadow-lg border border-white/5 m3-transition">
+      <div class="flex items-center justify-between mb-4">
+        <!-- Durum Rozeti -->
+        <span id="status-badge" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-zinc-800 text-zinc-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+          Yükleniyor...
+        </span>
+        
+        <!-- Canlı Ekolayzır -->
+        <div id="equalizer" class="hidden flex items-end gap-1 h-5 w-6">
+          <div class="w-1 h-full bg-m3Primary rounded-full eq-bar eq-1"></div>
+          <div class="w-1 h-full bg-m3Primary rounded-full eq-bar eq-2"></div>
+          <div class="w-1 h-full bg-m3Primary rounded-full eq-bar eq-3"></div>
+          <div class="w-1 h-full bg-m3Primary rounded-full eq-bar eq-4"></div>
+        </div>
+      </div>
+
+      <!-- Şarkı Bilgileri -->
+      <div class="flex gap-4 items-center">
+        <!-- Albüm Kapağı -->
+        <div class="relative flex-shrink-0 w-20 h-20 bg-zinc-800 rounded-2xl overflow-hidden shadow-inner">
+          <img id="now-playing-img" class="w-full h-full object-cover opacity-0 transition-opacity duration-300" src="" alt="Album Art">
+          <!-- Fallback müzik ikonu -->
+          <div id="now-playing-fallback" class="absolute inset-0 flex items-center justify-center bg-zinc-800 text-m3Primary">
+            <span class="material-symbols-outlined text-4xl">album</span>
+          </div>
+        </div>
+        
+        <div class="min-w-0 flex-1">
+          <h2 id="now-playing-title" class="font-bold text-lg text-m3OnSurface truncate">...</h2>
+          <p id="now-playing-artist" class="text-sm font-medium truncate mt-0.5">...</p>
+          <p id="now-playing-album" class="text-xs truncate mt-0.5">...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SON DİNLEDİĞİM ŞARKILAR LİSTESİ -->
+    <section class="bg-m3Surface rounded-[28px] p-6 shadow-md border border-white/5">
+      <h3 class="text-xs font-bold tracking-widest text-m3Primary uppercase mb-4">Geçmiş Dinlemeler</h3>
+      
+      <div id="recent-list" class="space-y-4">
+        <div class="text-sm text-m3OnSurfaceVariant animate-pulse">Şarkı geçmişi yükleniyor...</div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="mt-auto pt-12 text-center">
+    <p class="text-[11px] text-m3Outline">Last.fm entegrasyonu ile otomatik olarak güncellenir.</p>
+  </footer>
+
+  <script>
+    // --- YAPILANDIRMA ---
+    const LASTFM_API_KEY = "42256b45c944fd85183c852cf6a1bed9";
+    const LASTFM_USERNAME = "hasanbkaylan"; // Kullanıcı adınız güncellendi.
+    // --------------------
+
+    // Görsel bulunamazsa veya eksik gelirse kullanılacak modern, koyu temalı alternatif müzik görseli
+    const FALLBACK_ART = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300&auto=format&fit=crop";
+
+    // Albüm kapağını her durumda güvenle çeken fonksiyon
+    function getTrackImage(track, preferredSizeIndex) {
+      if (!track || !track.image) return FALLBACK_ART;
+      
+      let imageUrl = "";
+      
+      // Tercih edilen boyuttaki resmi almayı dene
+      if (track.image[preferredSizeIndex] && track.image[preferredSizeIndex]['#text']) {
+        imageUrl = track.image[preferredSizeIndex]['#text'];
+      }
+      
+      // Eğer o boyutta resim yoksa mevcut herhangi bir boyutu bulmaya çalış
+      if (!imageUrl) {
+        for (let i = track.image.length - 1; i >= 0; i--) {
+          if (track.image[i] && track.image[i]['#text']) {
+            imageUrl = track.image[i]['#text'];
+            break;
+          }
+        }
+      }
+      
+      // Eğer API boş string döndüyse ya da varsayılan boş Last.fm görseli geldiyse alternatif görseli kullan
+      if (!imageUrl || imageUrl.trim() === "" || imageUrl.includes("2a96cbd87f06")) {
+        return FALLBACK_ART;
+      }
+      
+      return imageUrl;
+    }
+
+    async function fetchMusic() {
+      const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${LASTFM_USERNAME}&api_key=${LASTFM_API_KEY}&format=json&limit=6`;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("API hatası");
+        const data = await response.json();
+        
+        const trackList = data.recenttracks?.track;
+        if (!trackList || trackList.length === 0) return;
+
+        const tracks = Array.isArray(trackList) ? trackList : [trackList];
+
+        const firstTrack = tracks[0];
+        const isCurrentlyPlaying = firstTrack['@attr']?.nowplaying === "true";
+
+        updateNowPlayingCard(firstTrack, isCurrentlyPlaying);
+        
+        const historyStartIndex = isCurrentlyPlaying ? 1 : 0;
+        updateHistoryList(tracks.slice(historyStartIndex, historyStartIndex + 4));
+
+      } catch (error) {
+        console.error("Şarkı verileri güncellenemedi:", error);
+      }
+    }
+
+    function updateNowPlayingCard(track, isLive) {
+      const card = document.getElementById('now-playing-card');
+      const badge = document.getElementById('status-badge');
+      const eq = document.getElementById('equalizer');
+      const title = document.getElementById('now-playing-title');
+      const artist = document.getElementById('now-playing-artist');
+      const album = document.getElementById('now-playing-album');
+      const img = document.getElementById('now-playing-img');
+      const fallback = document.getElementById('now-playing-fallback');
+
+      title.innerText = track.name || "Bilinmeyen Şarkı";
+      artist.innerText = track.artist?.['#text'] || "Bilinmeyen Sanatçı";
+      album.innerText = track.album?.['#text'] || "";
+
+      // Güvenli görsel çekme (Canlı kartı için geniş/büyük boy: index 2)
+      const coverUrl = getTrackImage(track, 2);
+      
+      img.src = coverUrl;
+      img.onload = () => {
+        img.classList.remove('opacity-0');
+        fallback.classList.add('hidden');
+      };
+
+      if (isLive) {
+        // Canlı Dinleme Modu (M3 On-Primary yüksek kontrastlı uyumlu renkler)
+        card.className = "bg-m3PrimaryContainer rounded-[28px] p-6 shadow-lg border border-m3Primary/20 m3-transition";
+        
+        badge.className = "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-m3Primary text-m3OnPrimary";
+        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-m3OnPrimary animate-pulse"></span>CANLI DİNLENİYOR`;
+        eq.classList.remove('hidden');
+        
+        title.className = "font-bold text-lg text-white truncate";
+        artist.className = "text-sm text-[#d0bcff] font-medium truncate mt-0.5"; // Canlı modda yüksek kontrastlı leylak
+        album.className = "text-xs text-[#eaddff]/70 truncate mt-0.5";
+      } else {
+        // Çevrimdışı / Son Dinlenen Modu
+        card.className = "bg-m3SurfaceVariant rounded-[28px] p-6 shadow-lg border border-white/5 m3-transition";
+
+        badge.className = "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-zinc-800 text-zinc-400";
+        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>SON DİNLENEN`;
+        eq.classList.add('hidden');
+        
+        title.className = "font-bold text-lg text-m3OnSurface truncate";
+        artist.className = "text-sm text-m3Primary font-medium truncate mt-0.5";
+        album.className = "text-xs text-m3OnSurfaceVariant truncate mt-0.5";
+      }
+    }
+
+    function updateHistoryList(tracks) {
+      const container = document.getElementById('recent-list');
+      container.innerHTML = ""; 
+
+      tracks.forEach(track => {
+        const title = track.name;
+        const artist = track.artist?.['#text'];
+        
+        // Güvenli görsel çekme (Geçmiş listesi için orta boy: index 1)
+        const coverUrl = getTrackImage(track, 1);
+        
+        const uts = track.date?.uts;
+        const timeStr = uts ? timeAgo(uts) : "Az önce";
+
+        const item = document.createElement('div');
+        item.className = "flex items-center gap-3 p-2 rounded-2xl hover:bg-white/[0.04] m3-transition";
+        item.innerHTML = `
+          <img class="w-11 h-11 rounded-xl object-cover bg-zinc-800 flex-shrink-0" src="${coverUrl}" alt="" onerror="this.src='${FALLBACK_ART}'">
+          <div class="min-w-0 flex-1">
+            <h4 class="font-semibold text-sm text-m3OnSurface truncate">${title}</h4>
+            <p class="text-xs text-m3OnSurfaceVariant truncate">${artist}</p>
+          </div>
+          <span class="text-[11px] text-m3Outline flex-shrink-0">${timeStr}</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function timeAgo(uts) {
+      const now = Math.floor(Date.now() / 1000);
+      const diff = now - parseInt(uts, 10);
+      if (diff < 60) return 'Az önce';
+      const mins = Math.floor(diff / 60);
+      if (mins < 60) return `${mins} dk`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `${hours} sa`;
+      const days = Math.floor(hours / 24);
+      return `${days} gün`;
+    }
+
+    // İlk yükleme ve periyodik sorgulama (20 saniyede bir)
+    fetchMusic();
+    setInterval(fetchMusic, 20000);
+  </script>
+</body>
+</html>
