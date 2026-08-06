@@ -76,8 +76,6 @@
       stroke: currentColor;
       stroke-width: 2;
       stroke-linecap: round;
-      stroke-dasharray: 100;
-      stroke-dashoffset: 100;
       opacity: 0;
     }
     .preview-ring-shape.visible {
@@ -141,7 +139,7 @@
       <div id="main-preview-container" class="mt-4 border-t border-white/10 pt-3 flex justify-end hidden">
         <div class="preview-btn-wrap rounded-full">
           <svg class="preview-ring text-m3Primary">
-            <rect id="main-preview-btn-ring" class="preview-ring-shape" x="1" y="1" width="1" height="1" rx="1" ry="1" pathLength="100"></rect>
+            <rect id="main-preview-btn-ring" class="preview-ring-shape" x="1" y="1" width="1" height="1" rx="1" ry="1"></rect>
           </svg>
           <button id="main-preview-btn" class="relative flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95">
             <span class="material-symbols-outlined text-sm">play_arrow</span>
@@ -383,7 +381,7 @@
             <span class="text-[11px] text-m3Outline">${timeStr}</span>
             <div class="preview-btn-wrap rounded-full">
               <svg class="preview-ring text-m3Primary" viewBox="0 0 32 32">
-                <circle id="${buttonId}-ring" class="preview-ring-shape" cx="16" cy="16" r="15" pathLength="100"></circle>
+                <circle id="${buttonId}-ring" class="preview-ring-shape" cx="16" cy="16" r="15"></circle>
               </svg>
               <button id="${buttonId}" onclick="togglePreview('${safeTitle}', '${safeArtist}', '${buttonId}', false)" class="relative w-8 h-8 rounded-full flex items-center justify-center bg-m3SurfaceVariant hover:bg-white/[0.08] text-m3Primary m3-transition shadow-sm">
                 <span class="material-symbols-outlined text-lg">play_arrow</span>
@@ -508,15 +506,26 @@
       return document.getElementById(`${elementId}-ring`);
     }
 
-    // Çalma başladığında halkayı sıfırdan 30sn'de tamamlanacak şekilde başlatır
+    // Şeklin GERÇEK çevre uzunluğunu tarayıcıdan doğrudan okur ve dash düzenini
+    // buna göre kurar. pathLength özniteliğine güvenmiyoruz çünkü path-olmayan
+    // (rect/circle) şekillerde tarayıcılar arası tutarsız davranıp halkanın
+    // kaymasına/aniden kaybolmasına sebep oluyordu.
+    function prepareRingDash(shape) {
+      const length = shape.getTotalLength();
+      shape.style.strokeDasharray = String(length);
+      return length;
+    }
+
+    // Çalma başladığında halkayı sıfırdan, parçanın süresi kadar sürede tamamlanacak şekilde başlatır
     function startRing(elementId, audio) {
-      syncMainRingGeometry();
+      if (elementId === 'main-preview-btn') syncMainRingGeometry();
       const shape = getRingShape(elementId);
       if (!shape) return;
       const duration = (audio.duration && isFinite(audio.duration)) ? audio.duration : 30;
+      const length = prepareRingDash(shape);
       shape.classList.add('visible');
       shape.style.transition = 'none';
-      shape.style.strokeDashoffset = '100';
+      shape.style.strokeDashoffset = String(length);
       // Reflow zorlayarak transition'ın anında sıfırlanmasını sağlıyoruz
       void shape.getBoundingClientRect();
       requestAnimationFrame(() => {
@@ -531,8 +540,9 @@
       if (!shape) return;
       const duration = (audio.duration && isFinite(audio.duration)) ? audio.duration : 30;
       const ratio = Math.min(audio.currentTime / duration, 1);
+      const length = prepareRingDash(shape);
       shape.style.transition = 'none';
-      shape.style.strokeDashoffset = String(100 - ratio * 100);
+      shape.style.strokeDashoffset = String(length * (1 - ratio));
       void shape.getBoundingClientRect();
     }
 
@@ -548,15 +558,17 @@
       });
     }
 
-    // Halkayı görünmez ve sıfır konuma resetler
+    // Halkayı görünmez ve başlangıç konumuna resetler
     function resetRing(elementId) {
-      syncMainRingGeometry();
+      if (elementId === 'main-preview-btn') syncMainRingGeometry();
       const shape = getRingShape(elementId);
       if (!shape) return;
+      const length = prepareRingDash(shape);
       shape.style.transition = 'none';
-      shape.style.strokeDashoffset = '100';
+      shape.style.strokeDashoffset = String(length);
       shape.classList.remove('visible');
     }
+
 
     // Butonların Tasarım/Durum Güncellemeleri (M3 Uyumlu)
     function updatePlayButtonUI(elementId, isPlaying, isMainCard) {
