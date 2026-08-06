@@ -282,9 +282,11 @@
         const isCurrentlyPlaying = firstTrack['@attr']?.nowplaying === "true";
 
         updateNowPlayingCard(firstTrack, isCurrentlyPlaying);
-        
-        const historyStartIndex = isCurrentlyPlaying ? 1 : 0;
-        updateHistoryList(tracks.slice(historyStartIndex, historyStartIndex + 4));
+
+        // Üst karttaki şarkı (canlı ya da son dinlenen fark etmeksizin) zaten
+        // en güncel parçayı gösteriyor. Geçmiş listesinin aynı şarkıyı tekrar
+        // göstermemesi için her durumda bir sonraki şarkıdan başlıyoruz.
+        updateHistoryList(tracks.slice(1, 1 + 4));
 
       } catch (error) {
         console.error("Şarkı verileri güncellenemedi:", error);
