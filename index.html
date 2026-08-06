@@ -140,8 +140,8 @@
       <!-- Önizleme Butonu Yuvası -->
       <div id="main-preview-container" class="mt-4 border-t border-white/10 pt-3 flex justify-end hidden">
         <div class="preview-btn-wrap rounded-full">
-          <svg class="preview-ring text-m3Primary" preserveAspectRatio="none">
-            <rect id="main-preview-btn-ring" class="preview-ring-shape" x="1%" y="6%" width="98%" height="88%" rx="9999" pathLength="100"></rect>
+          <svg class="preview-ring text-m3Primary" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <rect id="main-preview-btn-ring" class="preview-ring-shape" x="1" y="6" width="98" height="88" rx="50" ry="50" pathLength="100" vector-effect="non-scaling-stroke"></rect>
           </svg>
           <button id="main-preview-btn" class="relative flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95">
             <span class="material-symbols-outlined text-sm">play_arrow</span>
@@ -382,7 +382,7 @@
             <span class="text-[11px] text-m3Outline">${timeStr}</span>
             <div class="preview-btn-wrap rounded-full">
               <svg class="preview-ring text-m3Primary" viewBox="0 0 32 32">
-                <circle id="${buttonId}-ring" class="preview-ring-shape" cx="16" cy="16" r="15" pathLength="100"></circle>
+                <circle id="${buttonId}-ring" class="preview-ring-shape" cx="16" cy="16" r="15" pathLength="100" vector-effect="non-scaling-stroke"></circle>
               </svg>
               <button id="${buttonId}" onclick="togglePreview('${safeTitle}', '${safeArtist}', '${buttonId}', false)" class="relative w-8 h-8 rounded-full flex items-center justify-center bg-m3SurfaceVariant hover:bg-white/[0.08] text-m3Primary m3-transition shadow-sm">
                 <span class="material-symbols-outlined text-lg">play_arrow</span>
