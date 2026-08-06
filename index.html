@@ -57,6 +57,32 @@
     .eq-2 { animation-delay: 0.4s; }
     .eq-3 { animation-delay: 0.2s; }
     .eq-4 { animation-delay: 0.6s; }
+
+    /* Önizleme Butonu - 30 Saniyelik İlerleme Çizgisi */
+    .preview-btn-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+    .preview-ring {
+      position: absolute;
+      inset: -4px;
+      width: calc(100% + 8px);
+      height: calc(100% + 8px);
+      pointer-events: none;
+      overflow: visible;
+    }
+    .preview-ring-shape {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-dasharray: 100;
+      stroke-dashoffset: 100;
+      opacity: 0;
+    }
+    .preview-ring-shape.visible {
+      opacity: 1;
+    }
   </style>
 </head>
 <body class="bg-m3Bg text-m3OnSurface font-sans min-h-screen flex flex-col items-center py-12 px-4">
@@ -113,10 +139,15 @@
 
       <!-- Önizleme Butonu Yuvası -->
       <div id="main-preview-container" class="mt-4 border-t border-white/10 pt-3 flex justify-end hidden">
-        <button id="main-preview-btn" class="flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95">
-          <span class="material-symbols-outlined text-sm">play_arrow</span>
-          <span>Önizlemeyi Çal</span>
-        </button>
+        <div class="preview-btn-wrap rounded-full">
+          <svg class="preview-ring text-m3Primary" preserveAspectRatio="none">
+            <rect id="main-preview-btn-ring" class="preview-ring-shape" x="1%" y="6%" width="98%" height="88%" rx="9999" pathLength="100"></rect>
+          </svg>
+          <button id="main-preview-btn" class="relative flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95">
+            <span class="material-symbols-outlined text-sm">play_arrow</span>
+            <span>Önizlemeyi Çal</span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -173,7 +204,48 @@
     // Global Müzik Çalar Değişkenleri
     let activeAudio = null;
     let activeTrackKey = null; // ŞarkıAdı-Sanatçı eşleşmesi
-    const previewUrlCache = {}; // Çekilen url'leri önbellekte tutar
+    const itunesCache = {}; // trackKey -> { previewUrl, artwork } (iTunes'tan çekilen veriler önbelleklenir)
+
+    // Last.fm kapak resmi bulunamadığında / eksik olduğunda iTunes API'sinden
+    // yüksek çözünürlüklü kapak resmi ve 30 saniyelik önizleme linkini birlikte çeker
+    async function fetchItunesData(title, artist) {
+      const trackKey = `${title}-${artist}`;
+      if (itunesCache[trackKey]) return itunesCache[trackKey];
+
+      let result = { previewUrl: null, artwork: null };
+      try {
+        const query = `${title} ${artist}`;
+        const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`);
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+          const r = data.results[0];
+          result.previewUrl = r.previewUrl || null;
+          // iTunes varsayılan olarak 100x100 döner, bunu 600x600'e büyütüyoruz
+          result.artwork = r.artworkUrl100 ? r.artworkUrl100.replace('100x100bb', '600x600bb') : null;
+        }
+      } catch (error) {
+        console.error("iTunes API Hatası:", error);
+      }
+      itunesCache[trackKey] = result;
+      return result;
+    }
+
+    // Bir <img> elementine kapak resmini uygular; Last.fm görseli geçersizse
+    // arka planda iTunes'tan görsel çekip günceller
+    function applyCoverArt(imgEl, track, title, artist, sizeIndex) {
+      const lastfmUrl = getTrackImage(track, sizeIndex);
+      const isLastfmValid = lastfmUrl !== FALLBACK_ART;
+
+      imgEl.src = lastfmUrl;
+
+      if (!isLastfmValid) {
+        fetchItunesData(title, artist).then(res => {
+          if (res.artwork && imgEl.src !== res.artwork) {
+            imgEl.src = res.artwork;
+          }
+        });
+      }
+    }
 
     // Güvenli görsel çekme fonksiyonu
     function getTrackImage(track, preferredSizeIndex) {
@@ -241,12 +313,11 @@
       artist.innerText = aName;
       album.innerText = track.album?.['#text'] || "";
 
-      const coverUrl = getTrackImage(track, 2);
-      img.src = coverUrl;
       img.onload = () => {
         img.classList.remove('opacity-0');
         fallback.classList.add('hidden');
       };
+      applyCoverArt(img, track, tName, aName, 2);
 
       // Önizleme butonunu etkinleştir ve olayları bağla [1]
       previewContainer.classList.remove('hidden');
@@ -291,30 +362,36 @@
       tracks.forEach((track, index) => {
         const title = track.name;
         const artist = track.artist?.['#text'];
-        const coverUrl = getTrackImage(track, 1);
         const uts = track.date?.uts;
         const timeStr = uts ? timeAgo(uts) : "Az önce";
 
         const safeTitle = title.replace(/'/g, "\\'");
         const safeArtist = artist.replace(/'/g, "\\'");
         const buttonId = `hist-preview-btn-${index}`;
+        const imgId = `hist-img-${index}`;
 
         const item = document.createElement('div');
         item.className = "flex items-center gap-3 p-2 rounded-2xl hover:bg-white/[0.04] m3-transition";
         item.innerHTML = `
-          <img class="w-11 h-11 rounded-xl object-cover bg-zinc-800 flex-shrink-0" src="${coverUrl}" alt="" onerror="this.src='${FALLBACK_ART}'">
+          <img id="${imgId}" class="w-11 h-11 rounded-xl object-cover bg-zinc-800 flex-shrink-0" src="${FALLBACK_ART}" alt="" onerror="this.src='${FALLBACK_ART}'">
           <div class="min-w-0 flex-1">
             <h4 class="font-semibold text-sm text-m3OnSurface truncate">${title}</h4>
             <p class="text-xs text-m3OnSurfaceVariant truncate">${artist}</p>
           </div>
           <div class="flex items-center gap-3 flex-shrink-0">
             <span class="text-[11px] text-m3Outline">${timeStr}</span>
-            <button id="${buttonId}" onclick="togglePreview('${safeTitle}', '${safeArtist}', '${buttonId}', false)" class="w-8 h-8 rounded-full flex items-center justify-center bg-m3SurfaceVariant hover:bg-white/[0.08] text-m3Primary m3-transition shadow-sm">
-              <span class="material-symbols-outlined text-lg">play_arrow</span>
-            </button>
+            <div class="preview-btn-wrap rounded-full">
+              <svg class="preview-ring text-m3Primary" viewBox="0 0 32 32">
+                <circle id="${buttonId}-ring" class="preview-ring-shape" cx="16" cy="16" r="15" pathLength="100"></circle>
+              </svg>
+              <button id="${buttonId}" onclick="togglePreview('${safeTitle}', '${safeArtist}', '${buttonId}', false)" class="relative w-8 h-8 rounded-full flex items-center justify-center bg-m3SurfaceVariant hover:bg-white/[0.08] text-m3Primary m3-transition shadow-sm">
+                <span class="material-symbols-outlined text-lg">play_arrow</span>
+              </button>
+            </div>
           </div>
         `;
         container.appendChild(item);
+        applyCoverArt(document.getElementById(imgId), track, title, artist, 1);
 
         // Sayfa her 20s'de bir güncellendiğinde, bu şarkı çalmaya devam ediyorsa butonun pause ikonunu koru [1]
         const trackKey = `${title}-${artist}`;
@@ -335,9 +412,11 @@
         if (!activeAudio.paused) {
           activeAudio.pause();
           updatePlayButtonUI(elementId, false, isMainCard);
+          freezeRing(elementId, activeAudio);
         } else {
           activeAudio.play();
           updatePlayButtonUI(elementId, true, isMainCard);
+          resumeRing(elementId, activeAudio);
         }
         return;
       }
@@ -348,25 +427,14 @@
         const prevElementId = activeAudio.dataset.elementId;
         const prevIsMainCard = activeAudio.dataset.isMainCard === "true";
         updatePlayButtonUI(prevElementId, false, prevIsMainCard);
+        resetRing(prevElementId);
       }
 
       // 3. iTunes API üzerinden önizleme linkini çek (Varsa cache'den al) [1]
-      let previewUrl = previewUrlCache[trackKey];
-      if (!previewUrl) {
-        setButtonLoading(elementId, true, isMainCard);
-        try {
-          const query = `${title} ${artist}`;
-          const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`);
-          const data = await response.json();
-          if (data.results && data.results.length > 0) {
-            previewUrl = data.results[0].previewUrl;
-            previewUrlCache[trackKey] = previewUrl; // Önbelleğe kaydet [1]
-          }
-        } catch (error) {
-          console.error("iTunes API Hatası:", error);
-        }
-        setButtonLoading(elementId, false, isMainCard);
-      }
+      setButtonLoading(elementId, true, isMainCard);
+      const itunesData = await fetchItunesData(title, artist);
+      const previewUrl = itunesData.previewUrl;
+      setButtonLoading(elementId, false, isMainCard);
 
       // 4. iTunes üzerinde şarkı bulunamadıysa uyarı ver [1]
       if (!previewUrl) {
@@ -382,13 +450,70 @@
 
       activeAudio.play();
       updatePlayButtonUI(elementId, true, isMainCard);
+      resetRing(elementId);
+      startRing(elementId, activeAudio);
 
       // Şarkı bittiğinde buton durumunu sıfırla [1]
       activeAudio.onended = () => {
         updatePlayButtonUI(elementId, false, isMainCard);
+        resetRing(elementId);
         activeAudio = null;
         activeTrackKey = null;
       };
+    }
+
+    // --- 30 Saniyelik Önizleme İlerleme Çizgisi Kontrolleri ---
+
+    function getRingShape(elementId) {
+      return document.getElementById(`${elementId}-ring`);
+    }
+
+    // Çalma başladığında halkayı sıfırdan 30sn'de tamamlanacak şekilde başlatır
+    function startRing(elementId, audio) {
+      const shape = getRingShape(elementId);
+      if (!shape) return;
+      const duration = (audio.duration && isFinite(audio.duration)) ? audio.duration : 30;
+      shape.classList.add('visible');
+      shape.style.transition = 'none';
+      shape.style.strokeDashoffset = '100';
+      // Reflow zorlayarak transition'ın anında sıfırlanmasını sağlıyoruz
+      void shape.getBoundingClientRect();
+      requestAnimationFrame(() => {
+        shape.style.transition = `stroke-dashoffset ${duration}s linear`;
+        shape.style.strokeDashoffset = '0';
+      });
+    }
+
+    // Duraklatıldığında halkayı o anki konumunda dondurur
+    function freezeRing(elementId, audio) {
+      const shape = getRingShape(elementId);
+      if (!shape) return;
+      const duration = (audio.duration && isFinite(audio.duration)) ? audio.duration : 30;
+      const ratio = Math.min(audio.currentTime / duration, 1);
+      shape.style.transition = 'none';
+      shape.style.strokeDashoffset = String(100 - ratio * 100);
+      void shape.getBoundingClientRect();
+    }
+
+    // Tekrar oynatıldığında kalan süre kadar halkayı devam ettirir
+    function resumeRing(elementId, audio) {
+      const shape = getRingShape(elementId);
+      if (!shape) return;
+      const duration = (audio.duration && isFinite(audio.duration)) ? audio.duration : 30;
+      const remaining = Math.max(duration - audio.currentTime, 0);
+      requestAnimationFrame(() => {
+        shape.style.transition = `stroke-dashoffset ${remaining}s linear`;
+        shape.style.strokeDashoffset = '0';
+      });
+    }
+
+    // Halkayı görünmez ve sıfır konuma resetler
+    function resetRing(elementId) {
+      const shape = getRingShape(elementId);
+      if (!shape) return;
+      shape.style.transition = 'none';
+      shape.style.strokeDashoffset = '100';
+      shape.classList.remove('visible');
     }
 
     // Butonların Tasarım/Durum Güncellemeleri (M3 Uyumlu)
