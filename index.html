@@ -141,7 +141,7 @@
           <svg class="preview-ring text-m3Primary">
             <rect id="main-preview-btn-ring" class="preview-ring-shape" x="1" y="1" width="1" height="1" rx="1" ry="1"></rect>
           </svg>
-          <button id="main-preview-btn" class="relative flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95">
+          <button id="main-preview-btn" class="relative flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:brightness-110 active:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-m3Primary/60">
             <span class="material-symbols-outlined text-sm">play_arrow</span>
             <span>Önizlemeyi Çal</span>
           </button>
@@ -383,7 +383,7 @@
               <svg class="preview-ring text-m3Primary" viewBox="0 0 32 32">
                 <circle id="${buttonId}-ring" class="preview-ring-shape" cx="16" cy="16" r="15"></circle>
               </svg>
-              <button id="${buttonId}" onclick="togglePreview('${safeTitle}', '${safeArtist}', '${buttonId}', false)" class="relative w-8 h-8 rounded-full flex items-center justify-center bg-m3SurfaceVariant hover:bg-white/[0.08] text-m3Primary m3-transition shadow-sm">
+              <button id="${buttonId}" onclick="togglePreview('${safeTitle}', '${safeArtist}', '${buttonId}', false)" class="relative w-8 h-8 rounded-full flex items-center justify-center bg-m3SurfaceVariant hover:bg-white/[0.08] active:brightness-90 text-m3Primary m3-transition shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-m3Primary/60">
                 <span class="material-symbols-outlined text-lg">play_arrow</span>
               </button>
             </div>
@@ -582,19 +582,19 @@
         if (isPlaying) {
           icon.innerText = "pause";
           text.innerText = "Önizlemeyi Durdur";
-          btn.className = "flex items-center gap-2 px-4 py-2 bg-m3PrimaryContainer text-m3OnPrimaryContainer rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95";
+          btn.className = "relative flex items-center gap-2 px-4 py-2 bg-m3PrimaryContainer text-m3OnPrimaryContainer rounded-full text-xs font-semibold m3-transition hover:brightness-110 active:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-m3Primary/60";
         } else {
           icon.innerText = "play_arrow";
           text.innerText = "Önizlemeyi Çal";
-          btn.className = "flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:scale-105 active:scale-95";
+          btn.className = "relative flex items-center gap-2 px-4 py-2 bg-m3Primary text-m3OnPrimary rounded-full text-xs font-semibold m3-transition hover:brightness-110 active:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-m3Primary/60";
         }
       } else {
         if (isPlaying) {
           icon.innerText = "pause";
-          btn.className = "w-8 h-8 rounded-full flex items-center justify-center bg-m3PrimaryContainer text-m3OnPrimaryContainer m3-transition shadow-sm scale-105";
+          btn.className = "relative w-8 h-8 rounded-full flex items-center justify-center bg-m3PrimaryContainer text-m3OnPrimaryContainer m3-transition shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-m3Primary/60";
         } else {
           icon.innerText = "play_arrow";
-          btn.className = "w-8 h-8 rounded-full flex items-center justify-center bg-m3SurfaceVariant hover:bg-white/[0.08] text-m3Primary m3-transition shadow-sm";
+          btn.className = "relative w-8 h-8 rounded-full flex items-center justify-center bg-m3SurfaceVariant hover:bg-white/[0.08] active:brightness-90 text-m3Primary m3-transition shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-m3Primary/60";
         }
       }
     }
