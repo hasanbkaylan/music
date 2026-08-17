@@ -229,8 +229,96 @@
       return result;
     }
 
+    // --- Zor Durumlar İçin Ekstra Kapak Resmi Kaynakları ---
+    // Last.fm ve iTunes'ta da bulunamayan kapaklar için son çare olarak denenir.
+    // Sırasıyla: Deezer -> MusicBrainz/Cover Art Archive -> Last.fm album.getInfo.
+    // Last.fm'in görsel bulamadığında döndürdüğü bilinen "boş kapak" hash'i; bu hash
+    // geçerse görseli yok saymamız gerekir, aksi halde gri bir placeholder gösteririz.
+    const LASTFM_BLANK_IMAGE_HASH = "2a96cbd8b46e442fc41c2b86b821562";
+    const fallbackArtCache = {}; // trackKey -> url | null
+
+    // 1) Deezer arama API'si CORS başlığı döndürmüyor, bu yüzden herkese açık bir
+    // CORS proxy üzerinden isteniyor. Proxy geçici olarak erişilemez olabilir; bu
+    // durumda sadece bu adım sessizce atlanır, akışın geri kalanı etkilenmez.
+    async function fetchDeezerArtwork(title, artist) {
+      try {
+        const query = `${title} ${artist}`;
+        const target = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=1`;
+        const response = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(target)}`);
+        if (!response.ok) return null;
+        const data = await response.json();
+        const item = data && data.data && data.data[0];
+        const cover = item && (item.album?.cover_xl || item.album?.cover_big || item.album?.cover_medium);
+        return cover || null;
+      } catch (error) {
+        console.error("Deezer kapak resmi hatası:", error);
+        return null;
+      }
+    }
+
+    // 2) MusicBrainz üzerinden kaydı bulup bağlı olduğu release'in Cover Art
+    // Archive'daki ön kapağını çeker. Her iki servis de doğrudan CORS destekliyor,
+    // proxy gerekmiyor.
+    async function fetchMusicBrainzArtwork(title, artist) {
+      try {
+        const mbQuery = `recording:"${title}" AND artist:"${artist}"`;
+        const searchUrl = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(mbQuery)}&fmt=json&limit=1`;
+        const searchRes = await fetch(searchUrl);
+        if (!searchRes.ok) return null;
+        const searchData = await searchRes.json();
+        const releaseId = searchData?.recordings?.[0]?.releases?.[0]?.id;
+        if (!releaseId) return null;
+
+        const caaRes = await fetch(`https://coverartarchive.org/release/${releaseId}`);
+        if (!caaRes.ok) return null;
+        const caaData = await caaRes.json();
+        const front = caaData?.images?.find(img => img.front) || caaData?.images?.[0];
+        return front?.thumbnails?.large || front?.image || null;
+      } catch (error) {
+        console.error("MusicBrainz/Cover Art Archive hatası:", error);
+        return null;
+      }
+    }
+
+    // 3) Last.fm'in recenttracks uç noktası görsel döndürmese bile, album.getinfo
+    // farklı bir kapak barındırıyor olabilir. Aynı API anahtarını yeniden kullanır.
+    async function fetchLastfmAlbumArtwork(title, artist, album) {
+      try {
+        const albumName = album || title;
+        const url = `https://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=${LASTFM_API_KEY}&artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(albumName)}&format=json`;
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const data = await response.json();
+        const images = data?.album?.image || [];
+        for (let i = images.length - 1; i >= 0; i--) {
+          const url = images[i]?.['#text'];
+          if (url && !url.includes(LASTFM_BLANK_IMAGE_HASH)) return url;
+        }
+        return null;
+      } catch (error) {
+        console.error("Last.fm album.getinfo hatası:", error);
+        return null;
+      }
+    }
+
+    // Yukarıdaki 3 kaynağı sırayla dener, ilk bulduğunu döndürür ve önbelleğe alır.
+    // Bu fonksiyon SADECE Last.fm ve iTunes ikisi de kapak bulamadığında çağrılır.
+    async function fetchFallbackArtwork(title, artist, album) {
+      const trackKey = `${title}-${artist}`;
+      if (trackKey in fallbackArtCache) return fallbackArtCache[trackKey];
+
+      let artwork = await fetchDeezerArtwork(title, artist);
+      if (!artwork) artwork = await fetchMusicBrainzArtwork(title, artist);
+      if (!artwork) artwork = await fetchLastfmAlbumArtwork(title, artist, album);
+
+      fallbackArtCache[trackKey] = artwork;
+      return artwork;
+    }
+
     // Bir <img> elementine kapak resmini uygular; Last.fm görseli geçersizse
-    // arka planda iTunes'tan görsel çekip günceller
+    // arka planda iTunes'tan görsel çekip günceller. iTunes de bulamazsa (zor
+    // durumlar) sırasıyla Deezer, MusicBrainz/Cover Art Archive ve Last.fm
+    // album.getinfo denenir.
     function applyCoverArt(imgEl, track, title, artist, sizeIndex) {
       const lastfmUrl = getTrackImage(track, sizeIndex);
       const isLastfmValid = lastfmUrl !== FALLBACK_ART;
@@ -238,10 +326,16 @@
       imgEl.src = lastfmUrl;
 
       if (!isLastfmValid) {
+        const album = track?.album?.['#text'] || "";
         fetchItunesData(title, artist).then(res => {
-          if (res.artwork && imgEl.src !== res.artwork) {
-            imgEl.src = res.artwork;
+          if (res.artwork) {
+            if (imgEl.src !== res.artwork) imgEl.src = res.artwork;
+            return;
           }
+          // iTunes de bulamadı: ek kaynakları dene (sadece bu zor durumda)
+          fetchFallbackArtwork(title, artist, album).then(url => {
+            if (url && imgEl.src !== url) imgEl.src = url;
+          });
         });
       }
     }
@@ -395,12 +489,22 @@
         container.appendChild(item);
         applyCoverArt(document.getElementById(imgId), track, title, artist, 1);
 
-        // Sayfa her 20s'de bir güncellendiğinde, bu şarkı çalmaya devam ediyorsa butonun pause ikonunu koru [1]
+        // Sayfa her 20s'de bir güncellendiğinde, bu şarkı çalmaya devam ediyorsa butonun pause ikonunu koru.
+        // ÖNEMLİ: container.innerHTML = "" ile liste sıfırdan kurulduğu için buradaki <circle> elemanı da
+        // yepyeni (görünmez, dash'siz) bir DOM elemanıdır. Sadece ikonu geri koymak yetmez; halkanın da
+        // kaldığı yerden (audio.currentTime'a göre) yeniden bağlanması gerekir, yoksa halka yarım kalmışken
+        // aniden kayboluyormuş gibi görünür.
         const trackKey = `${title}-${artist}`;
-        if (activeTrackKey === trackKey && activeAudio && !activeAudio.paused) {
+        if (activeTrackKey === trackKey && activeAudio) {
           activeAudio.dataset.elementId = buttonId;
           activeAudio.dataset.isMainCard = "false";
-          updatePlayButtonUI(buttonId, true, false);
+          const stillPlaying = !activeAudio.paused;
+          updatePlayButtonUI(buttonId, stillPlaying, false);
+          if (stillPlaying) {
+            reattachRing(buttonId, activeAudio);
+          } else {
+            freezeRing(buttonId, activeAudio);
+          }
         }
       });
     }
@@ -544,9 +648,33 @@
       const duration = (audio.duration && isFinite(audio.duration)) ? audio.duration : 30;
       const ratio = Math.min(audio.currentTime / duration, 1);
       const length = prepareRingDash(shape);
+      shape.classList.add('visible');
       shape.style.transition = 'none';
       shape.style.strokeDashoffset = String(length * (1 - ratio));
       void shape.getBoundingClientRect();
+    }
+
+    // Geçmiş listesi periyodik olarak (20s) baştan çizildiğinde, hâlâ çalmakta olan
+    // parçanın halka elemanı da sıfırdan (görünmez, dash tanımsız) yaratılmış olur.
+    // Bu fonksiyon audio.currentTime'a bakarak halkayı doğru orandan itibaren
+    // görünür hale getirir ve kalan süre kadar normal akışına devam ettirir; böylece
+    // halka yarısına gelmeden aniden kaybolma sorunu ortadan kalkar.
+    function reattachRing(elementId, audio) {
+      const shape = getRingShape(elementId);
+      if (!shape) return;
+      const duration = (audio.duration && isFinite(audio.duration)) ? audio.duration : 30;
+      const ratio = Math.min(audio.currentTime / duration, 1);
+      const remaining = Math.max(duration - audio.currentTime, 0);
+      const length = prepareRingDash(shape);
+      shape.classList.add('visible');
+      shape.style.transition = 'none';
+      shape.style.strokeDashoffset = String(length * (1 - ratio));
+      // Reflow zorlayarak transition'ın anında sıfırlanmasını sağlıyoruz
+      void shape.getBoundingClientRect();
+      requestAnimationFrame(() => {
+        shape.style.transition = `stroke-dashoffset ${remaining}s linear`;
+        shape.style.strokeDashoffset = '0';
+      });
     }
 
     // Tekrar oynatıldığında kalan süre kadar halkayı devam ettirir
