@@ -231,31 +231,14 @@
 
     // --- Zor Durumlar İçin Ekstra Kapak Resmi Kaynakları ---
     // Last.fm ve iTunes'ta da bulunamayan kapaklar için son çare olarak denenir.
-    // Sırasıyla: iTunes (gevşetilmiş arama) -> Last.fm album.getInfo -> TheAudioDB ->
-    // MusicBrainz/Cover Art Archive. (Deezer, proxy'ye bağımlı ve güvenilmez olduğu
-    // için zincirden çıkarıldı.)
+    // Sırasıyla: Last.fm album.getInfo -> TheAudioDB -> MusicBrainz/Cover Art Archive.
+    // (Deezer, proxy'ye bağımlı ve güvenilmez olduğu için; iTunes'un gevşetilmiş
+    // arama denemesi de yavaş/tutarsız çalıştığı için zincirden çıkarıldı.)
     // Last.fm'in görsel bulamadığında döndürdüğü bilinen "boş kapak" hash'i; bu hash
     // geçerse görseli yok saymamız gerekir, aksi halde gri bir placeholder gösteririz.
     const LASTFM_BLANK_IMAGE_HASH = "2a96cbd8b46e442fc41c2b86b821562";
     const THEAUDIODB_KEY = "123"; // TheAudioDB'nin herkese açık ücretsiz test anahtarı
     const fallbackArtCache = {}; // trackKey -> url | null
-
-    // 0) İlk iTunes aramasında sanatçı adındaki küçük farklar (feat., yazım, sıralama
-    // vb.) eşleşmeyi kaçırabiliyor. Bu adım aynı güvenilir kaynağı, sadece şarkı adıyla
-    // ve daha fazla sonuç isteyerek tekrar dener; ilk sonuçtan ziyade kapak resmi olan
-    // ilk kaydı seçer.
-    async function fetchItunesLooseArtwork(title) {
-      try {
-        const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=song&limit=5`);
-        if (!response.ok) return null;
-        const data = await response.json();
-        const withArt = (data.results || []).find(r => r.artworkUrl100);
-        return withArt ? withArt.artworkUrl100.replace('100x100bb', '600x600bb') : null;
-      } catch (error) {
-        console.error("iTunes (gevşetilmiş) kapak resmi hatası:", error);
-        return null;
-      }
-    }
 
     // 1) Last.fm'in recenttracks uç noktası görsel döndürmese bile, album.getinfo
     // farklı bir kapak barındırıyor olabilir. Aynı API anahtarını yeniden kullanır.
@@ -340,8 +323,7 @@
       const trackKey = `${title}-${artist}`;
       if (trackKey in fallbackArtCache) return fallbackArtCache[trackKey];
 
-      let artwork = await fetchItunesLooseArtwork(title);
-      if (!artwork) artwork = await fetchLastfmAlbumArtwork(title, artist, album);
+      let artwork = await fetchLastfmAlbumArtwork(title, artist, album);
       if (!artwork) artwork = await fetchAudioDbArtwork(title, artist, album);
       if (!artwork) artwork = await fetchMusicBrainzArtwork(title, artist);
 
@@ -351,8 +333,8 @@
 
     // Bir <img> elementine kapak resmini uygular; Last.fm görseli geçersizse
     // arka planda iTunes'tan görsel çekip günceller. iTunes de bulamazsa (zor
-    // durumlar) sırasıyla iTunes (gevşetilmiş), Last.fm album.getinfo, TheAudioDB
-    // ve MusicBrainz/Cover Art Archive denenir.
+    // durumlar) sırasıyla Last.fm album.getinfo, TheAudioDB ve
+    // MusicBrainz/Cover Art Archive denenir.
     function applyCoverArt(imgEl, track, title, artist, sizeIndex) {
       const lastfmUrl = getTrackImage(track, sizeIndex);
       const isLastfmValid = lastfmUrl !== FALLBACK_ART;
@@ -366,8 +348,8 @@
             if (imgEl.src !== res.artwork) imgEl.src = res.artwork;
             return;
           }
-          // iTunes de bulamadı: sırasıyla iTunes (gevşetilmiş), Last.fm album.getinfo,
-      // TheAudioDB ve MusicBrainz/Cover Art Archive denenir (sadece bu zor durumda)
+          // iTunes de bulamadı: sırasıyla Last.fm album.getinfo, TheAudioDB ve
+      // MusicBrainz/Cover Art Archive denenir (sadece bu zor durumda)
           fetchFallbackArtwork(title, artist, album).then(url => {
             if (url && imgEl.src !== url) imgEl.src = url;
           });
