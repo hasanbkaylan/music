@@ -231,8 +231,9 @@
 
     // --- Zor Durumlar İçin Ekstra Kapak Resmi Kaynakları ---
     // Last.fm ve iTunes'ta da bulunamayan kapaklar için son çare olarak denenir.
-    // Sırasıyla: iTunes (gevşetilmiş arama) -> Deezer -> TheAudioDB ->
-    // MusicBrainz/Cover Art Archive -> Last.fm album.getInfo.
+    // Sırasıyla: iTunes (gevşetilmiş arama) -> Last.fm album.getInfo -> TheAudioDB ->
+    // MusicBrainz/Cover Art Archive. (Deezer, proxy'ye bağımlı ve güvenilmez olduğu
+    // için zincirden çıkarıldı.)
     // Last.fm'in görsel bulamadığında döndürdüğü bilinen "boş kapak" hash'i; bu hash
     // geçerse görseli yok saymamız gerekir, aksi halde gri bir placeholder gösteririz.
     const LASTFM_BLANK_IMAGE_HASH = "2a96cbd8b46e442fc41c2b86b821562";
@@ -256,28 +257,27 @@
       }
     }
 
-    // 1) Deezer arama API'si CORS başlığı döndürmüyor, bu yüzden herkese açık bir
-    // CORS proxy üzerinden isteniyor. Tek bir proxy'ye bağımlı kalmamak için birincisi
-    // başarısız olursa (kapalı/limitli olabilir) ikinci bir proxy ile tekrar denenir.
-    async function fetchDeezerArtwork(title, artist) {
-      const target = `https://api.deezer.com/search?q=${encodeURIComponent(`${title} ${artist}`)}&limit=1`;
-      const proxies = [
-        `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`
-      ];
-      for (const proxyUrl of proxies) {
-        try {
-          const response = await fetch(proxyUrl);
-          if (!response.ok) continue;
-          const data = await response.json();
-          const item = data && data.data && data.data[0];
-          const cover = item && (item.album?.cover_xl || item.album?.cover_big || item.album?.cover_medium);
-          if (cover) return cover;
-        } catch (error) {
-          console.error("Deezer kapak resmi hatası (proxy):", error);
+    // 1) Last.fm'in recenttracks uç noktası görsel döndürmese bile, album.getinfo
+    // farklı bir kapak barındırıyor olabilir. Aynı API anahtarını yeniden kullanır.
+    // iTunes'tan sonra en güvenilir ikinci kaynak olduğu için burada, proxy'ye
+    // bağımlı olmayan ve doğrudan CORS destekleyen bir servis olarak öne alındı.
+    async function fetchLastfmAlbumArtwork(title, artist, album) {
+      try {
+        const albumName = album || title;
+        const url = `https://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=${LASTFM_API_KEY}&artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(albumName)}&format=json`;
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const data = await response.json();
+        const images = data?.album?.image || [];
+        for (let i = images.length - 1; i >= 0; i--) {
+          const url = images[i]?.['#text'];
+          if (url && !url.includes(LASTFM_BLANK_IMAGE_HASH)) return url;
         }
+        return null;
+      } catch (error) {
+        console.error("Last.fm album.getinfo hatası:", error);
+        return null;
       }
-      return null;
     }
 
     // 2) TheAudioDB, geniş bir topluluk kaynaklı müzik/kapak veritabanıdır ve CORS
@@ -333,39 +333,17 @@
       }
     }
 
-    // 4) Last.fm'in recenttracks uç noktası görsel döndürmese bile, album.getinfo
-    // farklı bir kapak barındırıyor olabilir. Aynı API anahtarını yeniden kullanır.
-    async function fetchLastfmAlbumArtwork(title, artist, album) {
-      try {
-        const albumName = album || title;
-        const url = `https://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=${LASTFM_API_KEY}&artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(albumName)}&format=json`;
-        const response = await fetch(url);
-        if (!response.ok) return null;
-        const data = await response.json();
-        const images = data?.album?.image || [];
-        for (let i = images.length - 1; i >= 0; i--) {
-          const url = images[i]?.['#text'];
-          if (url && !url.includes(LASTFM_BLANK_IMAGE_HASH)) return url;
-        }
-        return null;
-      } catch (error) {
-        console.error("Last.fm album.getinfo hatası:", error);
-        return null;
-      }
-    }
-
-    // Yukarıdaki 5 kaynağı en güvenilirden en zayıfa doğru sırayla dener, ilk
-    // bulduğunu döndürür ve önbelleğe alır. Bu fonksiyon SADECE Last.fm ve iTunes
-    // (ilk, sıkı arama) ikisi de kapak bulamadığında çağrılır.
+    // Yukarıdaki 4 kaynağı en güvenilirden en zayıfa doğru sırayla dener, ilk
+    // bulduğunu döndürür ve önbelleğe alır. Bu fonksiyon SADECE Last.fm (recenttracks)
+    // ve iTunes (ilk, sıkı arama) ikisi de kapak bulamadığında çağrılır.
     async function fetchFallbackArtwork(title, artist, album) {
       const trackKey = `${title}-${artist}`;
       if (trackKey in fallbackArtCache) return fallbackArtCache[trackKey];
 
       let artwork = await fetchItunesLooseArtwork(title);
-      if (!artwork) artwork = await fetchDeezerArtwork(title, artist);
+      if (!artwork) artwork = await fetchLastfmAlbumArtwork(title, artist, album);
       if (!artwork) artwork = await fetchAudioDbArtwork(title, artist, album);
       if (!artwork) artwork = await fetchMusicBrainzArtwork(title, artist);
-      if (!artwork) artwork = await fetchLastfmAlbumArtwork(title, artist, album);
 
       fallbackArtCache[trackKey] = artwork;
       return artwork;
@@ -373,8 +351,8 @@
 
     // Bir <img> elementine kapak resmini uygular; Last.fm görseli geçersizse
     // arka planda iTunes'tan görsel çekip günceller. iTunes de bulamazsa (zor
-    // durumlar) sırasıyla Deezer, MusicBrainz/Cover Art Archive ve Last.fm
-    // album.getinfo denenir.
+    // durumlar) sırasıyla iTunes (gevşetilmiş), Last.fm album.getinfo, TheAudioDB
+    // ve MusicBrainz/Cover Art Archive denenir.
     function applyCoverArt(imgEl, track, title, artist, sizeIndex) {
       const lastfmUrl = getTrackImage(track, sizeIndex);
       const isLastfmValid = lastfmUrl !== FALLBACK_ART;
@@ -388,7 +366,8 @@
             if (imgEl.src !== res.artwork) imgEl.src = res.artwork;
             return;
           }
-          // iTunes de bulamadı: ek kaynakları dene (sadece bu zor durumda)
+          // iTunes de bulamadı: sırasıyla iTunes (gevşetilmiş), Last.fm album.getinfo,
+      // TheAudioDB ve MusicBrainz/Cover Art Archive denenir (sadece bu zor durumda)
           fetchFallbackArtwork(title, artist, album).then(url => {
             if (url && imgEl.src !== url) imgEl.src = url;
           });
